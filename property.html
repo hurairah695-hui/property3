@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PropDeal · Property</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="index.html" aria-label="PropDeal home"></a>
+  
+  <div class="sp"></div>
+  <div class="acct"><button class="av" id="av" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">·</button>
+    <div class="menu" id="menu" hidden><div class="mh"><b id="who"></b><small id="mail"></small><span class="rb" id="rl"></span></div><button class="mi" id="out" type="button">Log out</button></div></div>
+</div></header>
+<main class="wrap pg"><a class="back" id="back" href="buyer.html">← Back to listings</a><div class="pgrid" id="pv"></div></main>
+<footer class="wrap" style="padding:0 20px 40px;color:var(--muted);font-size:13px">Demo listings. Photos from <a href="https://unsplash.com" target="_blank" rel="noopener" style="color:inherit">Unsplash</a>.</footer>
+<div class="toast" id="toast" role="status"></div>
+<script src="app.js"></script>
+<script>
+me=need(['buyer','admin','seller']);nav();
+props=loadProps();favs=S.get('pd2_favs_'+me.email,[]);$('#back').href=HOME[me.role];
+const pid=+new URLSearchParams(location.search).get('id'),p=props.find(x=>x.id===pid),root=$('#pv');
+const today=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const SLOTS=['10:00 AM','11:00 AM','12:00 PM','02:00 PM','03:00 PM','04:00 PM','05:00 PM'];
+if(!p){root.innerHTML=`<div class="empty" style="grid-column:1/-1">This property is no longer available. <a href="${HOME[me.role]}">Back to listings</a></div>`}
+else{
+  document.title='PropDeal · '+p.title;
+  const rent=p.mode==='rent',n=nPics(p),own=me.role==='seller'&&p.owner===me.email,isBuyer=me.role==='buyer',seller=pName(p.owner),area=[p.locality,p.city].filter(Boolean).join(', ');
+  let G=n?Array.from({length:n},(_,i)=>[pic(p,i,1280),pic(p,i,220)]):[[art(p.type,p.id),art(p.type,p.id)]],cur=0,fav=favs.includes(p.id);
+  const paras=(p.long||p.description||'No description provided.').split(/\n\n+/).map(t=>`<p>${esc(t)}</p>`).join('');
+  const feats=p.feats&&p.feats.length?`<h3 style="margin:18px 0 0">Features</h3><ul class="feats">${p.feats.map(f=>`<li>✓ ${esc(f)}</li>`).join('')}</ul>`:'';
+  const row=(k,v)=>v==null||v===''?'':`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`;
+  const price=money(p.price)+(rent?'<small> / month</small>':'');
+  root.innerHTML=`<section class="gal"><div class="gmain"><img id="gm" alt="${esc(p.title)}" decoding="async"><span class="tag${rent?' rent':''}">${rent?'For Rent':'For Sale'}</span>
+    <button type="button" class="gn gp" aria-label="Previous photo">‹</button><button type="button" class="gn gx" aria-label="Next photo">›</button><span class="gc" id="gc"></span></div><div class="gth" id="gth"></div></section>
+  <section class="info"><p class="kind">${LABEL[p.type]} for ${rent?'rent':'sale'}</p><h1>${esc(p.title)}</h1><p class="loc">${esc(area)}</p>
+    <div class="pbox"><div class="pr big">${price}</div>
+      <div class="pn">${rent?'Monthly rent':'Asking price'} · ${p.neg===true?'<span class="pill neg">Negotiable</span>':p.neg===false?'<span class="pill fix">Fixed price</span>':'<span class="pill fix">Ask the seller</span>'}</div>
+      <div class="pn">PKR ${Number(p.price).toLocaleString('en-PK')}${rent?' per month':''}</div>
+      <div class="terms">${rent?`<span><b>Minimum rental period:</b> ${p.months?p.months+' months':'ask the owner'}</span><span>Tell the owner how many months you need when you request a viewing.</span>`
+        :`<span>${p.neg===true?'The seller will consider reasonable offers after a viewing.':p.neg===false?'The seller has quoted a final price.':'Ask the seller about the price.'}</span>`}</div></div>
+    <dl class="sp2">${row('Type',LABEL[p.type])}${row('Purpose',rent?'For rent':'For sale')}${row('Size',p.area_size)}${row('Area',area)}${row('Bedrooms',p.beds)}${row('Bathrooms',p.baths)}${row('Listed by',seller)}</dl>
+    <div class="acts">${isBuyer?`<button class="btn" id="sched">${rent?'Request a viewing':'Schedule a meeting'}</button>`:own?'<button class="del" id="delp">Delete listing</button>':`<small class="mu">${me.role==='admin'?'Admins can view listings only.':'Only buyers can request meetings.'}</small>`}
+      <button class="ghost" id="dfav">${fav?'♥ Saved':'♡ Save'}</button></div>
+    ${isBuyer?`<form class="mf" id="mf" hidden novalidate><h3>${rent?'Request a viewing from':'Request a meeting with'} ${esc(seller)}</h3>
+      <div class="fg2"><label>Date<input type="date" id="mdate" min="${today}"></label><label>Time<select id="mtime">${SLOTS.map(s=>`<option>${s}</option>`).join('')}</select></label>
+      ${rent?`<label class="full">How many months do you need it for? (minimum ${p.months||1})<input id="mmon" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="${p.months||''}"></label>`:''}
+      <label class="full">Message (optional)<textarea id="mnote" rows="2" maxlength="300" placeholder="e.g. I would like to visit on Saturday"></textarea></label></div>
+      <div class="alert" id="merr" role="alert" hidden></div>
+      <div class="acts"><button class="btn" type="submit">Send request</button><button type="button" class="ghost" id="mx">Cancel</button></div></form>`:''}
+  </section>
+  <section class="desc"><h2>About this property</h2>${paras}${feats}</section>`;
+  const paint=()=>{if(cur>=G.length)cur=0;$('#gm').src=G[cur][0];$('#gc').textContent=(cur+1)+' / '+G.length;
+    $('#gth').innerHTML=G.map((g,i)=>`<button type="button" data-i="${i}" aria-label="Photo ${i+1}"${i===cur?' aria-current="true"':''}><img src="${g[1]}" alt=""></button>`).join('');
+    document.querySelectorAll('.gn,.gc').forEach(e=>e.hidden=G.length<2)};
+  paint();
+  $('.gp').onclick=()=>{cur=(cur-1+G.length)%G.length;paint()};$('.gx').onclick=()=>{cur=(cur+1)%G.length;paint()};
+  $('#gth').onclick=e=>{const b=e.target.closest('button');if(b){cur=+b.dataset.i;paint()}};
+  addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(e.key==='ArrowLeft')$('.gp').click();if(e.key==='ArrowRight')$('.gx').click()});
+  root.addEventListener('error',e=>{const i=e.target;if(!i||i.tagName!=='IMG')return;
+    if(i.id==='gm'){G.splice(cur,1)}else if(i.closest('#gth')){G.splice(+i.closest('button').dataset.i,1)}else return;
+    if(!G.length)G=[[art(p.type,p.id),art(p.type,p.id)]];paint()},true);
+  $('#dfav').onclick=e=>{fav=!fav;favs=fav?[...favs,p.id]:favs.filter(x=>x!==p.id);S.set('pd2_favs_'+me.email,favs);e.target.textContent=fav?'♥ Saved':'♡ Save'};
+  if($('#delp'))$('#delp').onclick=()=>{if(!confirm('Delete this listing?'))return;
+    if(p.id<=SEEDP.length)S.set('pd5_deleted',[...S.get('pd5_deleted',[]),p.id]);else S.set('pd2_props',S.get('pd2_props',[]).filter(x=>x.id!==p.id));location.href=HOME[me.role]};
+  if(isBuyer){
+    if($('#mmon'))digits($('#mmon'),2);
+    $('#sched').onclick=()=>{$('#mf').hidden=false;$('#sched').hidden=true;$('#mdate').focus()};
+    $('#mx').onclick=()=>{$('#mf').hidden=true;$('#sched').hidden=false};
+    $('#mf').addEventListener('submit',e=>{e.preventDefault();const err=$('#merr');err.hidden=true;
+      const d=$('#mdate').value,okD=showErr($('#mdate'),!d?'Please choose a date.':d<today?'Choose a date from today onwards.':'');
+      const okM=rent?showErr($('#mmon'),vNum($('#mmon').value,'Rental period',p.months||1,60)):true;
+      if(!okD)shake($('#mdate'));if(!okM)shake($('#mmon'));if(!okD||!okM)return;
+      if(getM().some(m=>m.buyer===me.email&&m.propId===p.id&&m.status!=='declined')){err.textContent='You already have a meeting request for this property.';err.hidden=false;return}
+      const ms=getM();ms.unshift({id:Date.now(),propId:p.id,propTitle:p.title,seller:p.owner,buyer:me.email,buyerName:me.name,date:d,time:$('#mtime').value,note:$('#mnote').value.trim(),months:rent?+$('#mmon').value:null,status:'pending'});
+      setM(ms);$('#mf').innerHTML=`<p class="ok2">✓ Request sent to ${esc(seller)}.</p><div class="acts"><a class="btn" href="buyer.html#meetings">View my meetings</a></div>`;toast('Meeting request sent')})}
+}
+</script>
+</body>
+</html>
